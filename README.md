@@ -89,8 +89,10 @@ Open: `http://localhost:5173`
 - `GET /api/config` - app center, years, classes
 - `GET /api/classes` - 9 land-cover classes
 - `GET /api/years` - available years (2016-2025)
-- `GET /api/layers/dynamic-world?year=YYYY` - yearly classification layer
-- `GET /api/layers/worldcover` - ESA reference layer
+- `GET /api/tiles/dynamic-world?year=YYYY` - Dynamic World Earth Engine tile URL
+- `GET /api/tiles/worldcover` - ESA WorldCover Earth Engine tile URL
+- `GET /api/layers/dynamic-world?year=YYYY` - legacy GeoJSON layer
+- `GET /api/layers/worldcover` - legacy GeoJSON layer
 - `GET /api/statistics?year=YYYY` - area stats (ha)
 - `GET /api/change?from=YYYY&to=YYYY` - net changes + change layers
 - `GET /api/point?lat=..&lng=..` - point probability time series
@@ -98,6 +100,10 @@ Open: `http://localhost:5173`
 ## Data integration notes
 
 The current standalone app uses a cached sample dataset in `backend/src/data.js` to mimic Dynamic World workflows.
+
+For Earth Engine tile endpoints, configure backend credentials via environment variables:
+`GEE_PROJECT_ID`, `GEE_PRIVATE_KEY_ID`, `GEE_PRIVATE_KEY`, `GEE_CLIENT_EMAIL`,
+`GEE_CLIENT_ID`, `GEE_CLIENT_X509_CERT_URL`.
 
 To integrate real preprocessed data:
 1. Replace `CELLS`/`WORLDCOVER` in `backend/src/data.js` with exported GeoJSON/GeoTIFF-derived vector summaries.

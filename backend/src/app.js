@@ -10,6 +10,10 @@ const {
   getPointSeries,
   getChange,
 } = require('./data');
+const {
+  getDynamicWorldTileUrl,
+  getWorldCoverTileUrl,
+} = require('./gee');
 
 const app = express();
 
@@ -48,6 +52,38 @@ app.get('/api/layers/dynamic-world', (req, res) => {
 
 app.get('/api/layers/worldcover', (_req, res) => {
   res.json(WORLDCOVER);
+});
+
+app.get('/api/tiles/dynamic-world', async (req, res) => {
+  try {
+    const year = Number(req.query.year);
+
+    if (!YEARS.includes(year)) {
+      return res.status(400).json({
+        error: 'Year must be between 2016 and 2025.',
+      });
+    }
+
+    const tile = await getDynamicWorldTileUrl(year);
+    return res.json(tile);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      error: 'Could not generate Dynamic World tile URL.',
+    });
+  }
+});
+
+app.get('/api/tiles/worldcover', async (_req, res) => {
+  try {
+    const tile = await getWorldCoverTileUrl();
+    return res.json(tile);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      error: 'Could not generate ESA WorldCover tile URL.',
+    });
+  }
 });
 
 app.get('/api/statistics', (req, res) => {
