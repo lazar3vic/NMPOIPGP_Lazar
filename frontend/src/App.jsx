@@ -37,8 +37,8 @@ function ClassificationMap({
   title,
   center,
   year,
-  layer,
-  worldcover,
+  tile,
+  worldcoverTile,
   showWorldCover,
   builtLayer,
   cropLayer,
@@ -46,13 +46,6 @@ function ClassificationMap({
   showCrop,
   onPointSelect,
 }) {
-  const styleByClass = (feature) => ({
-    color: '#ffffff',
-    weight: 1,
-    fillOpacity: 0.7,
-    fillColor: feature?.properties?.color || '#cccccc',
-  });
-
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-2 shadow-sm">
       <h3 className="mb-2 text-sm font-semibold text-slate-700">{title} ({year})</h3>
@@ -69,8 +62,20 @@ function ClassificationMap({
           </LayersControl.BaseLayer>
         </LayersControl>
 
-        {layer && <GeoJSON data={layer} style={styleByClass} />}
-        {showWorldCover && worldcover && <GeoJSON data={worldcover} style={() => ({ color: '#222', weight: 1, fillOpacity: 0.15 })} />}
+        {tile && (
+          <TileLayer
+            url={tile.url}
+            opacity={0.75}
+            attribution={tile.attribution}
+          />
+        )}
+        {showWorldCover && worldcoverTile && (
+          <TileLayer
+            url={worldcoverTile.url}
+            opacity={0.65}
+            attribution={worldcoverTile.attribution}
+          />
+        )}
         {showBuilt && builtLayer && <GeoJSON data={builtLayer} style={() => ({ color: '#ff00ff', weight: 2, fillOpacity: 0.4 })} />}
         {showCrop && cropLayer && <GeoJSON data={cropLayer} style={() => ({ color: '#111', weight: 2, fillOpacity: 0.4 })} />}
         <MapClickHandler onClick={onPointSelect} />
@@ -92,9 +97,9 @@ export default function App() {
   const [years, setYears] = useState([]);
   const [yearA, setYearA] = useState(2016);
   const [yearB, setYearB] = useState(2025);
-  const [layerA, setLayerA] = useState(null);
-  const [layerB, setLayerB] = useState(null);
-  const [worldcover, setWorldcover] = useState(null);
+  const [tileA, setTileA] = useState(null);
+  const [tileB, setTileB] = useState(null);
+  const [worldcoverTile, setWorldcoverTile] = useState(null);
   const [statsA, setStatsA] = useState([]);
   const [statsB, setStatsB] = useState([]);
   const [change, setChange] = useState(null);
@@ -111,11 +116,11 @@ export default function App() {
         const [cfg, yearsResponse, wc] = await Promise.all([
           getJson('/config'),
           getJson('/years'),
-          getJson('/layers/worldcover'),
+          getJson('/tiles/worldcover'),
         ]);
         setConfig(cfg);
         setYears(yearsResponse);
-        setWorldcover(wc);
+        setWorldcoverTile(wc);
       } catch (err) {
         setError(err.message);
       }
@@ -131,14 +136,14 @@ export default function App() {
       setError('');
       try {
         const [dwA, dwB, sA, sB, ch] = await Promise.all([
-          getJson(`/layers/dynamic-world?year=${yearA}`),
-          getJson(`/layers/dynamic-world?year=${yearB}`),
+          getJson(`/tiles/dynamic-world?year=${yearA}`),
+          getJson(`/tiles/dynamic-world?year=${yearB}`),
           getJson(`/statistics?year=${yearA}`),
           getJson(`/statistics?year=${yearB}`),
           getJson(`/change?from=${yearA}&to=${yearB}`),
         ]);
-        setLayerA(dwA);
-        setLayerB(dwB);
+        setTileA(dwA);
+        setTileB(dwB);
         setStatsA(sA);
         setStatsB(sB);
         setChange(ch);
@@ -234,8 +239,8 @@ export default function App() {
           title="Comparison Map A"
           center={center}
           year={yearA}
-          layer={layerA}
-          worldcover={worldcover}
+          tile={tileA}
+          worldcoverTile={worldcoverTile}
           showWorldCover={showWorldCover}
           builtLayer={change?.built_expansion_layer}
           cropLayer={change?.crop_loss_layer}
@@ -247,8 +252,8 @@ export default function App() {
           title="Comparison Map B"
           center={center}
           year={yearB}
-          layer={layerB}
-          worldcover={worldcover}
+          tile={tileB}
+          worldcoverTile={worldcoverTile}
           showWorldCover={showWorldCover}
           builtLayer={change?.built_expansion_layer}
           cropLayer={change?.crop_loss_layer}
