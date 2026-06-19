@@ -64,13 +64,16 @@ function ClassificationMap({
 
         {tile && (
           <TileLayer
+            key={tile.url}
             url={tile.url}
             opacity={0.75}
+            
             attribution={tile.attribution}
           />
         )}
         {showWorldCover && worldcoverTile && (
           <TileLayer
+            key={worldcoverTile.url}
             url={worldcoverTile.url}
             opacity={0.65}
             attribution={worldcoverTile.attribution}
@@ -136,8 +139,8 @@ export default function App() {
       setError('');
       try {
         const [dwA, dwB, sA, sB, ch] = await Promise.all([
-          getJson(`api/tiles/dynamic-world?year=${yearA}`),
-          getJson(`api/tiles/dynamic-world?year=${yearB}`),
+          getJson(`/tiles/dynamic-world?year=${yearA}`),
+          getJson(`/tiles/dynamic-world?year=${yearB}`),
           getJson(`/statistics?year=${yearA}`),
           getJson(`/statistics?year=${yearB}`),
           getJson(`/change?from=${yearA}&to=${yearB}`),
