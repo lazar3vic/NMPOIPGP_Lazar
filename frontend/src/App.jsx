@@ -136,8 +136,8 @@ export default function App() {
       setError('');
       try {
         const [dwA, dwB, sA, sB, ch] = await Promise.all([
-          getJson(`/tiles/dynamic-world?year=${yearA}`),
-          getJson(`/tiles/dynamic-world?year=${yearB}`),
+          getJson(`api/tiles/dynamic-world?year=${yearA}`),
+          getJson(`api/tiles/dynamic-world?year=${yearB}`),
           getJson(`/statistics?year=${yearA}`),
           getJson(`/statistics?year=${yearB}`),
           getJson(`/change?from=${yearA}&to=${yearB}`),
