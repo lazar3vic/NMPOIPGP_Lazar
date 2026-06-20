@@ -1,7 +1,138 @@
 const ee = require('@google/earthengine');
+const DW_CLASSES = [
+  { class_id: 0, key: 'water', class_name: 'Water', color: '#419BDF' },
+  { class_id: 1, key: 'trees', class_name: 'Trees', color: '#397D49' },
+  { class_id: 2, key: 'grass', class_name: 'Grass', color: '#88B053' },
+  { class_id: 3, key: 'flooded_vegetation', class_name: 'Flooded vegetation', color: '#7A87C6' },
+  { class_id: 4, key: 'crops', class_name: 'Crops', color: '#E49635' },
+  { class_id: 5, key: 'shrub_scrub', class_name: 'Shrub & scrub', color: '#DFC35A' },
+  { class_id: 6, key: 'built', class_name: 'Built area', color: '#C4281B' },
+  { class_id: 7, key: 'bare', class_name: 'Bare ground', color: '#A59B8F' },
+  { class_id: 8, key: 'snow_ice', class_name: 'Snow & ice', color: '#B39FE1' },
+];
+
+function getSomborBoundary() {
+  const assetId = process.env.GEE_SOMBOR_ASSET_ID;
+
+  if (!assetId) {
+    throw new Error('Missing GEE_SOMBOR_ASSET_ID environment variable.');
+  }
+
+  return ee.FeatureCollection(assetId);
+}
+
+function getSomborRegion() {
+  return getSomborBoundary().geometry();
+}
+
+async function getDynamicWorldTileUrl(year) {
+  await initializeEarthEngine();
+
+  const image = getDynamicWorldImage(year);
+
+  const visParams = {
+    min: 0,
+    max: 8,
+    palette: [
+      '419BDF',
+      '397D49',
+      '88B053',
+      '7A87C6',
+      'E49635',
+      'DFC35A',
+      'C4281B',
+      'A59B8F',
+      'B39FE1',
+    ],
+  };
+
+  const map = image.getMapId(visParams);
+
+  return {
+    url: map.urlFormat,
+    attribution: 'Google Earth Engine / Dynamic World',
+  };
+}
 
 let initialized = false;
 let initializePromise = null;
+
+function evaluateEeObject(object) {
+  return new Promise((resolve, reject) => {
+    object.evaluate((result, error) => {
+      if (error) reject(error);
+      else resolve(result);
+    });
+  });
+}
+
+async function getDynamicWorldStatistics(year) {
+  await initializeEarthEngine();
+
+  const image = getDynamicWorldImage(year);
+  const region = getSomborRegion();
+
+  const areaImage = ee.Image.pixelArea()
+    .divide(10000)
+    .rename('area_ha')
+    .addBands(image.rename('class'));
+
+  const grouped = areaImage.reduceRegion({
+    reducer: ee.Reducer.sum().group({
+      groupField: 1,
+      groupName: 'class_id',
+    }),
+    geometry: region,
+    scale: 10,
+    maxPixels: 1e13,
+    tileScale: 4,
+  });
+
+  const result = await evaluateEeObject(grouped);
+  const groups = result.groups || [];
+
+  return DW_CLASSES.map((cls) => {
+    const match = groups.find((item) => Number(item.class_id) === cls.class_id);
+    return {
+      ...cls,
+      area_ha: match ? Number(match.sum.toFixed(2)) : 0,
+    };
+  });
+}
+
+async function getDynamicWorldChange(fromYear, toYear) {
+  await initializeEarthEngine();
+
+  const fromStats = await getDynamicWorldStatistics(fromYear);
+  const toStats = await getDynamicWorldStatistics(toYear);
+
+  const net_change = DW_CLASSES.map((cls) => {
+    const fromItem = fromStats.find((item) => item.class_id === cls.class_id);
+    const toItem = toStats.find((item) => item.class_id === cls.class_id);
+
+    const from_ha = fromItem?.area_ha || 0;
+    const to_ha = toItem?.area_ha || 0;
+    const delta_ha = Number((to_ha - from_ha).toFixed(2));
+
+    return {
+      ...cls,
+      from_ha,
+      to_ha,
+      delta_ha,
+    };
+  });
+
+  const built = net_change.find((item) => item.key === 'built');
+  const crops = net_change.find((item) => item.key === 'crops');
+
+  return {
+    net_change,
+    built_expansion_ha: built ? Math.max(0, built.delta_ha) : 0,
+    crop_loss_ha: crops ? Math.max(0, -crops.delta_ha) : 0,
+    built_expansion_layer: null,
+    crop_loss_layer: null,
+  };
+}
 
 function createPrivateKeyConfig() {
   return {
@@ -114,7 +245,12 @@ async function getDynamicWorldTileUrl(year) {
 async function getWorldCoverTileUrl() {
   await initializeEarthEngine();
 
-  const image = ee.Image('ESA/WorldCover/v200/2021').select('Map');
+  const region = getSomborRegion();
+
+  const image = ee.ImageCollection('ESA/WorldCover/v200')
+    .first()
+    .select('Map')
+    .clip(region);
 
   const visParams = {
     min: 10,
@@ -142,7 +278,61 @@ async function getWorldCoverTileUrl() {
   };
 }
 
+async function getPointSeries(lat, lng) {
+  await initializeEarthEngine();
+
+  const point = ee.Geometry.Point([lng, lat]);
+
+  const years = Array.from({ length: 10 }, (_, index) => 2016 + index);
+
+  const features = years.map((year) => {
+    const start = `${year}-01-01`;
+    const end = `${year}-12-31`;
+
+    const image = ee.ImageCollection('GOOGLE/DYNAMICWORLD/V1')
+      .filterDate(start, end)
+      .filterBounds(point)
+      .select(DW_CLASSES.map((cls) => cls.key))
+      .mean();
+
+    const values = image.reduceRegion({
+      reducer: ee.Reducer.first(),
+      geometry: point,
+      scale: 10,
+      maxPixels: 1e13,
+    });
+
+    return ee.Feature(null, values).set('year', year);
+  });
+
+  const fc = ee.FeatureCollection(features);
+  const result = await evaluateEeObject(fc);
+
+  const probabilities = {};
+  DW_CLASSES.forEach((cls) => {
+    probabilities[cls.key] = [];
+  });
+
+  result.features.forEach((feature) => {
+    const props = feature.properties || {};
+    DW_CLASSES.forEach((cls) => {
+      probabilities[cls.key].push(Number(props[cls.key] || 0));
+    });
+  });
+
+  return {
+    lat,
+    lng,
+    years,
+    classes: DW_CLASSES,
+    probabilities,
+  };
+}
+
 module.exports = {
   getDynamicWorldTileUrl,
   getWorldCoverTileUrl,
+  getDynamicWorldStatistics,
+  getDynamicWorldChange,
+  getPointSeries,
 };
