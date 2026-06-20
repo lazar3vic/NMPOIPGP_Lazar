@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   MapContainer,
   TileLayer,
-  GeoJSON,
   LayersControl,
   useMapEvents,
 } from 'react-leaflet';
@@ -40,8 +39,8 @@ function ClassificationMap({
   tile,
   worldcoverTile,
   showWorldCover,
-  builtLayer,
-  cropLayer,
+  builtExpansionTile,
+  cropLossTile,
   showBuilt,
   showCrop,
   onPointSelect,
@@ -79,8 +78,23 @@ function ClassificationMap({
             attribution={worldcoverTile.attribution}
           />
         )}
-        {showBuilt && builtLayer && <GeoJSON data={builtLayer} style={() => ({ color: '#ff00ff', weight: 2, fillOpacity: 0.4 })} />}
-        {showCrop && cropLayer && <GeoJSON data={cropLayer} style={() => ({ color: '#111', weight: 2, fillOpacity: 0.4 })} />}
+        {showBuilt && builtExpansionTile && (
+  <TileLayer
+    key={builtExpansionTile.url}
+    url={builtExpansionTile.url}
+    opacity={0.85}
+    attribution={builtExpansionTile.attribution}
+  />
+)}
+
+{showCrop && cropLossTile && (
+  <TileLayer
+    key={cropLossTile.url}
+    url={cropLossTile.url}
+    opacity={0.85}
+    attribution={cropLossTile.attribution}
+  />
+)}
         <MapClickHandler onClick={onPointSelect} />
       </MapContainer>
     </div>
@@ -103,6 +117,8 @@ export default function App() {
   const [tileA, setTileA] = useState(null);
   const [tileB, setTileB] = useState(null);
   const [worldcoverTile, setWorldcoverTile] = useState(null);
+  const [builtExpansionTile, setBuiltExpansionTile] = useState(null);
+  const [cropLossTile, setCropLossTile] = useState(null);
   const [statsA, setStatsA] = useState([]);
   const [statsB, setStatsB] = useState([]);
   const [change, setChange] = useState(null);
@@ -138,18 +154,22 @@ export default function App() {
       setLoading(true);
       setError('');
       try {
-        const [dwA, dwB, sA, sB, ch] = await Promise.all([
-          getJson(`/tiles/dynamic-world?year=${yearA}`),
-          getJson(`/tiles/dynamic-world?year=${yearB}`),
-          getJson(`/statistics?year=${yearA}`),
-          getJson(`/statistics?year=${yearB}`),
-          getJson(`/change?from=${yearA}&to=${yearB}`),
-        ]);
+        const [dwA, dwB, sA, sB, ch, builtTile, cropTile] = await Promise.all([
+  getJson(`/tiles/dynamic-world?year=${yearA}`),
+  getJson(`/tiles/dynamic-world?year=${yearB}`),
+  getJson(`/statistics?year=${yearA}`),
+  getJson(`/statistics?year=${yearB}`),
+  getJson(`/change?from=${yearA}&to=${yearB}`),
+  getJson(`/tiles/built-expansion?from=${yearA}&to=${yearB}`),
+  getJson(`/tiles/crop-loss?from=${yearA}&to=${yearB}`),
+]);
         setTileA(dwA);
         setTileB(dwB);
         setStatsA(sA);
         setStatsB(sB);
         setChange(ch);
+        setBuiltExpansionTile(builtTile);
+        setCropLossTile(cropTile);
       } catch (err) {
         setError(err.message);
       } finally {
@@ -239,31 +259,31 @@ export default function App() {
 
       <section className="grid gap-4 lg:grid-cols-2">
         <ClassificationMap
-          title="Comparison Map A"
-          center={center}
-          year={yearA}
-          tile={tileA}
-          worldcoverTile={worldcoverTile}
-          showWorldCover={showWorldCover}
-          builtLayer={change?.built_expansion_layer}
-          cropLayer={change?.crop_loss_layer}
-          showBuilt={showBuilt}
-          showCrop={showCrop}
-          onPointSelect={handlePointClick}
-        />
+  title="Comparison Map A"
+  center={center}
+  year={yearA}
+  tile={tileA}
+  worldcoverTile={worldcoverTile}
+  showWorldCover={showWorldCover}
+  builtExpansionTile={builtExpansionTile}
+  cropLossTile={cropLossTile}
+  showBuilt={showBuilt}
+  showCrop={showCrop}
+  onPointSelect={handlePointClick}
+/>
         <ClassificationMap
-          title="Comparison Map B"
-          center={center}
-          year={yearB}
-          tile={tileB}
-          worldcoverTile={worldcoverTile}
-          showWorldCover={showWorldCover}
-          builtLayer={change?.built_expansion_layer}
-          cropLayer={change?.crop_loss_layer}
-          showBuilt={showBuilt}
-          showCrop={showCrop}
-          onPointSelect={handlePointClick}
-        />
+  title="Comparison Map B"
+  center={center}
+  year={yearB}
+  tile={tileB}
+  worldcoverTile={worldcoverTile}
+  showWorldCover={showWorldCover}
+  builtExpansionTile={builtExpansionTile}
+  cropLossTile={cropLossTile}
+  showBuilt={showBuilt}
+  showCrop={showCrop}
+  onPointSelect={handlePointClick}
+/>
       </section>
 
       <section className="mt-4 grid gap-4 xl:grid-cols-2">
