@@ -13,6 +13,9 @@ const {
 const {
   getDynamicWorldTileUrl,
   getWorldCoverTileUrl,
+  getDynamicWorldStatistics,
+  getDynamicWorldChange,
+  getPointSeries,
 } = require('./gee');
 
 const app = express();
@@ -86,35 +89,60 @@ app.get('/api/tiles/worldcover', async (_req, res) => {
   }
 });
 
-app.get('/api/statistics', (req, res) => {
-  const year = Number(req.query.year);
-  if (!YEARS.includes(year)) {
-    return res.status(400).json({ error: 'Year must be between 2016 and 2025.' });
-  }
+app.get('/api/statistics', async (req, res) => {
+  try {
+    const year = Number(req.query.year);
 
-  return res.json(aggregateStats(year));
+    if (!YEARS.includes(year)) {
+      return res.status(400).json({ error: 'Invalid year.' });
+    }
+
+    const stats = await getDynamicWorldStatistics(year);
+    return res.json(stats);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      error: 'Could not calculate Dynamic World statistics.',
+    });
+  }
 });
 
-app.get('/api/change', (req, res) => {
-  const from = Number(req.query.from);
-  const to = Number(req.query.to);
+app.get('/api/change', async (req, res) => {
+  try {
+    const fromYear = Number(req.query.from);
+    const toYear = Number(req.query.to);
 
-  if (!YEARS.includes(from) || !YEARS.includes(to) || to < from) {
-    return res.status(400).json({ error: 'Use valid years (2016-2025) and ensure to >= from.' });
+    if (!YEARS.includes(fromYear) || !YEARS.includes(toYear)) {
+      return res.status(400).json({ error: 'Invalid year range.' });
+    }
+
+    const change = await getDynamicWorldChange(fromYear, toYear);
+    return res.json(change);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      error: 'Could not calculate Dynamic World change.',
+    });
   }
-
-  return res.json(getChange(from, to));
 });
 
-app.get('/api/point', (req, res) => {
-  const lat = Number(req.query.lat);
-  const lng = Number(req.query.lng);
+app.get('/api/point', async (req, res) => {
+  try {
+    const lat = Number(req.query.lat);
+    const lng = Number(req.query.lng);
 
-  if (Number.isNaN(lat) || Number.isNaN(lng)) {
-    return res.status(400).json({ error: 'lat and lng query params are required.' });
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      return res.status(400).json({ error: 'Invalid point coordinates.' });
+    }
+
+    const series = await getPointSeries(lat, lng);
+    return res.json(series);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      error: 'Could not calculate point time series.',
+    });
   }
-
-  return res.json(getPointSeries(lat, lng));
 });
 
 module.exports = app;
