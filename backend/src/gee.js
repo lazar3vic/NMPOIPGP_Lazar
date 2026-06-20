@@ -307,10 +307,66 @@ async function getWorldCoverTileUrl() {
   };
 }
 
+async function getBuiltExpansionTileUrl(fromYear, toYear) {
+  await initializeEarthEngine();
+
+  const fromImage = getDynamicWorldImage(fromYear);
+  const toImage = getDynamicWorldImage(toYear);
+
+  // Dynamic World class 6 = built area
+  const builtExpansion = toImage
+    .eq(6)
+    .and(fromImage.neq(6))
+    .selfMask()
+    .rename('built_expansion');
+
+  const visParams = {
+    min: 1,
+    max: 1,
+    palette: ['ff00ff'], // magenta
+  };
+
+  const map = builtExpansion.getMapId(visParams);
+
+  return {
+    url: map.urlFormat,
+    attribution: 'Google Earth Engine / Dynamic World built-area expansion',
+  };
+}
+
+async function getCropLossTileUrl(fromYear, toYear) {
+  await initializeEarthEngine();
+
+  const fromImage = getDynamicWorldImage(fromYear);
+  const toImage = getDynamicWorldImage(toYear);
+
+  // Dynamic World class 4 = crops
+  const cropLoss = fromImage
+    .eq(4)
+    .and(toImage.neq(4))
+    .selfMask()
+    .rename('crop_loss');
+
+  const visParams = {
+    min: 1,
+    max: 1,
+    palette: ['111111'], // black
+  };
+
+  const map = cropLoss.getMapId(visParams);
+
+  return {
+    url: map.urlFormat,
+    attribution: 'Google Earth Engine / Dynamic World crop loss',
+  };
+}
+
 module.exports = {
   getDynamicWorldTileUrl,
   getWorldCoverTileUrl,
   getDynamicWorldStatistics,
   getDynamicWorldChange,
   getPointSeries,
+  getBuiltExpansionTileUrl,
+  getCropLossTileUrl,
 };
