@@ -13,6 +13,8 @@ const {
   getDynamicWorldStatistics,
   getDynamicWorldChange,
   getPointSeries,
+  getBuiltExpansionTileUrl,
+  getCropLossTileUrl,
 } = require('./gee');
 
 const app = express();
@@ -82,6 +84,44 @@ app.get('/api/tiles/worldcover', async (_req, res) => {
     console.error(error);
     return res.status(500).json({
       error: 'Could not generate ESA WorldCover tile URL.',
+    });
+  }
+});
+
+app.get('/api/tiles/built-expansion', async (req, res) => {
+  try {
+    const fromYear = Number(req.query.from);
+    const toYear = Number(req.query.to);
+
+    if (!YEARS.includes(fromYear) || !YEARS.includes(toYear)) {
+      return res.status(400).json({ error: 'Invalid year range.' });
+    }
+
+    const tile = await getBuiltExpansionTileUrl(fromYear, toYear);
+    return res.json(tile);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      error: 'Could not generate built-area expansion tile URL.',
+    });
+  }
+});
+
+app.get('/api/tiles/crop-loss', async (req, res) => {
+  try {
+    const fromYear = Number(req.query.from);
+    const toYear = Number(req.query.to);
+
+    if (!YEARS.includes(fromYear) || !YEARS.includes(toYear)) {
+      return res.status(400).json({ error: 'Invalid year range.' });
+    }
+
+    const tile = await getCropLossTileUrl(fromYear, toYear);
+    return res.json(tile);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      error: 'Could not generate crop-loss tile URL.',
     });
   }
 });
