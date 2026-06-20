@@ -5,10 +5,7 @@ const {
   CLASSES,
   YEARS,
   WORLDCOVER,
-  aggregateStats,
   getDynamicWorldLayer,
-  getPointSeries,
-  getChange,
 } = require('./data');
 const {
   getDynamicWorldTileUrl,
