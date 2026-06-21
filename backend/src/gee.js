@@ -204,7 +204,6 @@ async function getDynamicWorldChange(fromYear, toYear) {
 }
 
 async function getPointSeries(lat, lng) {
-async function getPointSeries(lat, lng) {
   await initializeEarthEngine();
 
   const point = ee.Geometry.Point([lng, lat]);
