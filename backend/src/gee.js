@@ -1,15 +1,27 @@
 const ee = require('@google/earthengine');
 
+const DW_PROBABILITY_BANDS = [
+  'water',
+  'trees',
+  'grass',
+  'flooded_vegetation',
+  'crops',
+  'shrub_and_scrub',
+  'built',
+  'bare',
+  'snow_and_ice',
+];
+
 const DW_CLASSES = [
-  { class_id: 0, key: 'water', class_name: 'Water', color: '#419BDF' },
-  { class_id: 1, key: 'trees', class_name: 'Trees', color: '#397D49' },
-  { class_id: 2, key: 'grass', class_name: 'Grass', color: '#88B053' },
-  { class_id: 3, key: 'flooded_vegetation', class_name: 'Flooded vegetation', color: '#7A87C6' },
-  { class_id: 4, key: 'crops', class_name: 'Crops', color: '#E49635' },
-  { class_id: 5, key: 'shrub_scrub', class_name: 'Shrub & scrub', color: '#DFC35A' },
-  { class_id: 6, key: 'built', class_name: 'Built area', color: '#C4281B' },
-  { class_id: 7, key: 'bare', class_name: 'Bare ground', color: '#A59B8F' },
-  { class_id: 8, key: 'snow_ice', class_name: 'Snow & ice', color: '#B39FE1' },
+  { class_id: 0, key: 'water', class_name: 'Water', name: 'Water', color: '#419BDF' },
+  { class_id: 1, key: 'trees', class_name: 'Trees', name: 'Trees', color: '#397D49' },
+  { class_id: 2, key: 'grass', class_name: 'Grass', name: 'Grass', color: '#88B053' },
+  { class_id: 3, key: 'flooded_vegetation', class_name: 'Flooded vegetation', name: 'Flooded vegetation', color: '#7A87C6' },
+  { class_id: 4, key: 'crops', class_name: 'Crops', name: 'Crops', color: '#E49635' },
+  { class_id: 5, key: 'shrub_and_scrub', class_name: 'Shrub & scrub', name: 'Shrub & scrub', color: '#DFC35A' },
+  { class_id: 6, key: 'built', class_name: 'Built area', name: 'Built area', color: '#C4281B' },
+  { class_id: 7, key: 'bare', class_name: 'Bare ground', name: 'Bare ground', color: '#A59B8F' },
+  { class_id: 8, key: 'snow_and_ice', class_name: 'Snow & ice', name: 'Snow & ice', color: '#B39FE1' },
 ];
 
 function getSomborBoundary() {
@@ -195,7 +207,6 @@ async function getPointSeries(lat, lng) {
   await initializeEarthEngine();
 
   const point = ee.Geometry.Point([lng, lat]);
-
   const years = Array.from({ length: 10 }, (_, index) => 2016 + index);
 
   const features = years.map((year) => {
@@ -205,7 +216,7 @@ async function getPointSeries(lat, lng) {
     const image = ee.ImageCollection('GOOGLE/DYNAMICWORLD/V1')
       .filterDate(start, end)
       .filterBounds(point)
-      .select(DW_CLASSES.map((cls) => cls.key))
+      .select(DW_PROBABILITY_BANDS)
       .mean();
 
     const values = image.reduceRegion({
@@ -213,10 +224,37 @@ async function getPointSeries(lat, lng) {
       geometry: point,
       scale: 10,
       maxPixels: 1e13,
+      tileScale: 4,
     });
 
     return ee.Feature(null, values).set('year', year);
   });
+
+  const fc = ee.FeatureCollection(features);
+  const result = await evaluateEeObject(fc);
+
+  const probabilities = {};
+  DW_PROBABILITY_BANDS.forEach((band) => {
+    probabilities[band] = [];
+  });
+
+  result.features.forEach((feature) => {
+    const props = feature.properties || {};
+
+    DW_PROBABILITY_BANDS.forEach((band) => {
+      const value = props[band];
+      probabilities[band].push(value == null ? 0 : Number(value));
+    });
+  });
+
+  return {
+    lat,
+    lng,
+    years,
+    classes: DW_CLASSES,
+    probabilities,
+  };
+}
 
   const fc = ee.FeatureCollection(features);
   const result = await evaluateEeObject(fc);
