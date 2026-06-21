@@ -204,6 +204,7 @@ async function getDynamicWorldChange(fromYear, toYear) {
 }
 
 async function getPointSeries(lat, lng) {
+async function getPointSeries(lat, lng) {
   await initializeEarthEngine();
 
   const point = ee.Geometry.Point([lng, lat]);
@@ -244,30 +245,6 @@ async function getPointSeries(lat, lng) {
     DW_PROBABILITY_BANDS.forEach((band) => {
       const value = props[band];
       probabilities[band].push(value == null ? 0 : Number(value));
-    });
-  });
-
-  return {
-    lat,
-    lng,
-    years,
-    classes: DW_CLASSES,
-    probabilities,
-  };
-}
-
-  const fc = ee.FeatureCollection(features);
-  const result = await evaluateEeObject(fc);
-
-  const probabilities = {};
-  DW_CLASSES.forEach((cls) => {
-    probabilities[cls.key] = [];
-  });
-
-  result.features.forEach((feature) => {
-    const props = feature.properties || {};
-    DW_CLASSES.forEach((cls) => {
-      probabilities[cls.key].push(Number(props[cls.key] || 0));
     });
   });
 
